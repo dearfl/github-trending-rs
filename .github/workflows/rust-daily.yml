@@ -1,0 +1,53 @@
+name: Rust Daily
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        target: [ x86_64-unknown-linux-gnu ]
+        toolchain: [ stable ]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: archive
+
+    - name: Setup Rust Toolchain
+      uses: hecrj/setup-rust-action@v2
+      with:
+        rust-version: ${{ matrix.toolchain }}
+        targets: ${{ matrix.target }}
+        components: rustfmt, clippy
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        prefix-key: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.toolchain }}
+
+    - name: Daily Push
+      run: |
+        export OUTPUT=$(cargo r -r --example rust-daily)
+        git status
+        if [[ $OUTPUT ]]; then
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.CHAT_ID }}" -d "parse_mode=MarkdownV2" -d "link_preview_options={\"is_disabled\": true}" --data-urlencode "text=$OUTPUT"
+        fi
+
+    - name: Archive
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add archive
+        git commit -m "chore: update repository archive $(date +'%Y-%m-%d')"
+        git push origin archive
