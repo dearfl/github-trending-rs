@@ -1,0 +1,39 @@
+name: Rust Daily
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.toolchain }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        target: [ x86_64-unknown-linux-gnu ]
+        toolchain: [ stable ]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Rust Toolchain
+      uses: hecrj/setup-rust-action@v2
+      with:
+        rust-version: ${{ matrix.toolchain }}
+        targets: ${{ matrix.target }}
+        components: rustfmt, clippy
+
+    - name: Setup Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        prefix-key: ${{ matrix.os }}-${{ matrix.target }}-${{ matrix.toolchain }}
+
+    - name: Daily Push
+      run: |
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.CHAT_ID }}" -d "text=$(cargo r -r --example rust-daily)"
