@@ -9,15 +9,22 @@ async fn main() -> anyhow::Result<()> {
         .timeout(Duration::from_secs(10))
         .build()?;
     let client = Client::with_client(client);
-    for repo in client
+    for (idx, repo) in client
         .trending()
         .with_language(Language::Rust)
         .since(Since::Daily)
         .repositories()
         .await?
         .iter()
+        .enumerate()
     {
-        println!("{:#?}", repo);
+        println!(
+            "{}. [{}]({}): {}",
+            idx + 1,
+            repo.name,
+            repo.url(),
+            repo.description
+        );
     }
     Ok(())
 }
